@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Which Content Pages Should You Refresh First? A Grouped-Validation Study</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #5a5a5a;
+    --line: #e5e5e5;
+    --accent: #2563eb;
+    --bg-card: #f7f7f8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 5rem;
+    line-height: 1.65;
+    background: #fff;
+  }
+  h1 { font-size: 1.9rem; line-height: 1.25; margin-bottom: 0.3rem; }
+  h2 { font-size: 1.3rem; margin-top: 2.6rem; border-bottom: 2px solid var(--line); padding-bottom: 0.4rem; }
+  h3 { font-size: 1.05rem; margin-top: 1.5rem; }
+  .byline { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; }
+  .abstract {
+    background: var(--bg-card);
+    border-left: 4px solid var(--accent);
+    padding: 1.2rem 1.4rem;
+    border-radius: 4px;
+    font-size: 0.98rem;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.92rem; }
+  th, td { border: 1px solid var(--line); padding: 0.5rem 0.7rem; text-align: left; }
+  th { background: var(--bg-card); }
+  code { background: var(--bg-card); padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.88em; }
+  .callout {
+    background: #fff7e6;
+    border-left: 4px solid #d97706;
+    padding: 0.9rem 1.2rem;
+    border-radius: 4px;
+    font-size: 0.93rem;
+    margin: 1rem 0;
+  }
+  .caption { color: var(--muted); font-size: 0.85rem; text-align: center; margin-top: -0.5rem; }
+  img { max-width: 100%; border-radius: 6px; border: 1px solid var(--line); }
+  ul, ol { padding-left: 1.4rem; }
+  a { color: var(--accent); }
+  footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.9rem; }
+  .badge { display: inline-block; background: var(--bg-card); border-radius: 20px; padding: 0.2rem 0.7rem; font-size: 0.8rem; margin-right: 0.4rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<span class="badge">Machine Learning</span><span class="badge">Content Strategy</span><span class="badge">Applied Search Intelligence</span>
+
+<h1>Which Content Pages Should You Refresh First? A Grouped-Validation Study on Real Search Data</h1>
+<p class="byline">Parameshwaran S (Parama) · FlyRank ML Internship · Refresh / Content Opportunity Scoring lane</p>
+
+<div class="abstract">
+<strong>Abstract.</strong> Content teams can't review every page, so which ones deserve attention first? Using FlyRank's anonymized content-performance dataset (30,000 pages, 32 clients, trailing-90-day metrics), I built a ranked-review system comparing a transparent staleness rule against Logistic Regression and Random Forest classifiers. Under an honest, client-held-out validation split, the simple baseline rule (Precision@50 = 0.620) and Logistic Regression (0.660) both outperformed Random Forest (0.580) — the opposite of what a naive random split showed (0.920, inflated by client memorization). This is decision-support evidence for prioritizing review queues, not a causal claim about what fixes content decline.
+</div>
+
+<h2>1. Introduction</h2>
+<p>A content team lead has limited time each sprint and thousands of pages. Which ones should get reviewed first — for refresh, expansion, or monitoring? Getting this wrong costs two ways: reviewing pages that didn't need it wastes hours, while ignoring a genuinely declining, high-traffic page lets the loss compound. This study builds and honestly validates a ranking system to support that decision.</p>
+
+<h2>2. Data</h2>
+<p>Primary dataset: FlyRank's anonymized starter release (<code>content_refresh_anonymized.csv</code>) — 30,000 rows, one row per pseudonymized content item, spanning 32 clients, with trailing-90-day search and engagement metrics. I additionally verified a mid-panel slice (March 2026, 9,841,378 rows) of the full internship warehouse release via DuckDB to confirm grain and data availability at scale.</p>
+<p><strong>Deliberately excluded:</strong> <code>trend_direction</code> and <code>trend_pct</code> (the label's direct source — including them would leak the answer); any FlyRank product decision flags such as <code>health_score</code> or <code>priority_score</code> (not shipped in this data, and would encode an existing rule rather than new signal); GA4-derived engagement features for rows without confirmed tracking (only ~4.2% of a sampled warehouse month had <code>ga4_data_available = TRUE</code>).</p>
+
+<h2>3. Methodology</h2>
+<p><strong>Label (proxy):</strong> <code>is_declining_label</code> = (<code>trend_direction == "down"</code>) — a proxy computed from the current window, not a validated future outcome.</p>
+<p><strong>Baseline:</strong> a transparent rule — <code>stale_visible_page</code>: page is 180+ days since last update AND has 100+ impressions in the last 90 days, scored by impression volume.</p>
+<p><strong>Model:</strong> Logistic Regression and Random Forest, using 7 observable features (content age, days since update, impressions, average position, CTR, word count, search volume) — all knowable before any decision point.</p>
+<p><strong>Validation:</strong> Grouped split by <code>client_id</code> (8 held-out clients, 25% test size, seed=42) — not a random split, since pages from the same client sharing hidden patterns let a random split's model partially memorize clients rather than generalize.</p>
+<p><strong>Leakage audit:</strong> deliberately added <code>trend_pct</code> as a feature to test the harness — Precision@50 jumped from 0.580 to a perfect 1.000, confirming the setup correctly detects leakage. It is excluded from the real model.</p>
+
+<h2>4. Results</h2>
+<table>
+<tr><th>Method</th><th>Precision@50</th><th>Split</th></tr>
+<tr><td>Base rate</td><td>0.517</td><td>—</td></tr>
+<tr><td>Baseline rule</td><td>0.620</td><td>Grouped by client</td></tr>
+<tr><td>Random Forest</td><td>0.580</td><td>Grouped by client</td></tr>
+<tr><td>Logistic Regression</td><td>0.660</td><td>Grouped by client</td></tr>
+<tr><td>Random Forest (dishonest, for comparison)</td><td>0.920</td><td>Random (no grouping)</td></tr>
+</table>
+<img src="model_vs_baseline.png" alt="Bar chart comparing Precision@50 across base rate, baseline rule, Random Forest, and Logistic Regression">
+<p class="caption">Precision@50 under the honest, grouped-by-client validation split.</p>
+<p>On the honest split, the simple baseline rule and Logistic Regression outperform Random Forest — the opposite of the ungrouped result. The 34-point gap between the random split (0.920) and grouped split (0.580) for the same Random Forest model is itself the key finding: it is fully explained by client-level memorization, not real predictive skill.</p>
+
+<h2>5. Limitations</h2>
+<ul>
+<li>The label is a proxy (current-window trend bucket), not a validated future outcome.</li>
+<li>This is a single-split observation (seed=42, 8 held-out clients) — a different split could shift the exact ranking between methods.</li>
+<li>GA4-derived engagement signals cover only a small, non-random slice of pages.</li>
+<li>This is observational, cross-sectional data. Nothing here supports "refreshing this page will cause recovery" — only that certain pages show patterns associated with decline, worth a human look.</li>
+<li>No claim is made about Google's ranking algorithm.</li>
+</ul>
+
+<h2>6. Ranked Recommendations</h2>
+<p>The output is a ranked review queue combining model confidence with interpretable reason codes, so a reviewer sees the concrete signal behind every flag — never a bare score.</p>
+<table>
+<tr><th>Reason code</th><th>Action</th><th>Trigger</th></tr>
+<tr><td><code>model_decline_risk</code></td><td>Review for refresh</td><td>Model probability ≥ 0.65</td></tr>
+<tr><td><code>stale_visible_page</code></td><td>Review for refresh</td><td>180+ days stale AND 100+ impressions</td></tr>
+<tr><td><code>ctr_review_candidate</code></td><td>Review metadata/CTR</td><td>500+ impressions, position 1–20, CTR &lt; 0.5%</td></tr>
+<tr><td><code>monitor_only</code></td><td>Monitor</td><td>No strong signal yet</td></tr>
+</table>
+
+<div class="callout">
+<strong>Human review is required before any action.</strong> Confirm the page isn't mid-migration, recently redirected, or affected by seasonality or sibling-page consolidation. <strong>Never automate:</strong> deletion, redirects, or rewrites based on this score alone. The model itself sometimes flags pages with a stable or growing trend — a real, observed limitation, not a hidden one — so a human check is not optional.
+</div>
+
+<p><strong>Monitoring / retrain triggers:</strong> re-validate if Precision@50 on fresh data drops meaningfully below 0.580; re-validate with a grouped split if the client mix changes substantially; reassess GA4-feature weighting if tracking coverage shifts.</p>
+
+<h2>7. Reproducibility</h2>
+<p>All code, notebooks, and metrics receipts are in the public repo below. Random seed: 42 throughout. To rerun: clone the repo, install <code>requirements.txt</code>, and run the notebooks in <code>work/notebooks/</code> in order (w01 → w07 → capstone).</p>
+<p>Repo: <a href="https://github.com/imnotparama/flyrank-ml-internship">github.com/imnotparama/flyrank-ml-internship</a></p>
+
+<footer>
+<p><strong>Acknowledgments &amp; Data Credit.</strong> Built on the FlyRank ML Internship dataset — <a href="https://flyrank.ai">flyrank.ai</a>.</p>
+</footer>
+
+</body>
+</html>
